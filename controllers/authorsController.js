@@ -1,24 +1,24 @@
 const express = require('express'),
     router = express.Router()
 
-const service = require('../services/booksService')
+const service = require('../services/authorsService')
 
-//http://localhost:3000/api/books/
+//http://localhost:3000/api/authors/
 router.get('/', async (req, res) => {
-    const books = await service.getAllBooks()
-    res.send(books)
+    const authors = await service.getAllAuthors()
+    res.send(authors)
 })
 
 router.get('/:id', async (req, res) => {
-    const book = await service.getBookById(req.params.id)
-    if (book === undefined)
+    const author = await service.getAuthorById(req.params.id)
+    if (author === undefined)
         res.status(404).json("no record with given id: "+req.params.id)
     else
-        res.send(book)
+        res.send(author)
 })
 
 router.delete('/:id', async (req, res) => {
-    const affectedRows = await service.deleteBook(req.params.id)
+    const affectedRows = await service.deleteAuthor(req.params.id)
     if (affectedRows === 0)
         res.status(404).json("no record with given id: "+req.params.id)
     else
@@ -26,12 +26,12 @@ router.delete('/:id', async (req, res) => {
 })
 
 router.post('/', async (req, res) => {
-    await service.addOrEditBook(req.body)
+    await service.addOrEditAuthor(req.body)
     res.status(201).send("created successfully")
 })
 
 router.put('/:id', async (req, res) => {
-    const affectedRows = await service.addOrEditBook(req.body, req.params.id)
+    const affectedRows = await service.addOrEditAuthor(req.body, req.params.id)
     if (affectedRows === 0)
         res.status(404).json("no record with given id: "+req.params.id)
     else
