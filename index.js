@@ -12,8 +12,8 @@ const db = require('./db'),
 app.use(bodyparser.json())
 
 app.use('/api/books', bookRoutes)
-app.use('/api/authors', bookRoutes)
-app.use('/api/genres', bookRoutes)
+app.use('/api/authors', authorRoutes)
+app.use('/api/genres', genreRoutes)
 
 app.use((err, req, res, next) => {
     console.log(err)

@@ -1,9 +1,49 @@
 const db = require('../db')
+const excelJS = require("exceljs");
+var arraySort = require('array-sort');
+let books = [];
 
-module.exports.getAllBooks = async (filters) => {
+module.exports.getAllBooks = async () => {
     let query = "SELECT * FROM books"
     const [rows] = await db.query("SELECT * FROM books")
     return rows;
+}
+
+module.exports.getFilter = async (price_param, priceOption, reverseSort, limit_param, startIndex, endIndex) => {
+    if (typeof price_param !== 'undefined' || typeof priceOption !== 'undefined') {
+        if (priceOption === 'more') {
+            filtered_books = filtered_books.filter(book => book.Price > price_param);
+        } else if (priceOption === 'less') {
+            filtered_books = filtered_books.filter(book => book.Price < price_param);
+        }
+    }
+    const [[row]] = await db.query("SELECT * FROM books WHERE Name Like = ?", [id])
+    return row;
+
+
+}
+
+module.exports.getFilterBooks = async (price_param, priceOption, reverseSort, limit_param, startIndex, endIndex) => {
+    let filtered_books = books;
+    filtered_books = exports.getAllBooks()
+
+    if (typeof price_param !== 'undefined' || typeof priceOption !== 'undefined') {
+        if (priceOption === 'more') {
+            filtered_books = filtered_books.filter(book => book.Price > price_param);
+        } else if (priceOption === 'less') {
+            filtered_books = filtered_books.filter(book => book.Price < price_param);
+        }
+    }
+
+    if (typeof reverseSort !== 'undefined') {
+        arraySort(filtered_books, 'price', {reverse: true});
+    } else {
+        arraySort(filtered_books, 'price', {reverse: false});
+    }
+
+    filtered_books = filtered_books.slice(startIndex, endIndex);
+
+    return filtered_books
 }
 
 module.exports.getBookById = async (id) => {
