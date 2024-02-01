@@ -20,3 +20,30 @@ module.exports.addOrEditGenre = async (obj, id = 0) => {
         [id, obj.Name])
     return affectedRows;
 }
+
+module.exports.getGenresBooks = async () => {
+    const [rows] = await db.query("SELECT \n" +
+    "genres.Name AS Genre, \n" +
+        "books.Name AS BookName, \n" +
+        "books.Publish_Year, \n" +
+        "books.Pages_Count, \n" +
+        "books.Price \n" +
+    "FROM genres \n" +
+    "JOIN books \n" +
+    "ON genres.Name = books.Genre")
+    return rows;
+}
+
+module.exports.getGenresBooksById = async (id) => {
+    const [row] = await db.query("SELECT \n" +
+        "genres.Name AS Genre, \n" +
+        "books.Name AS BookName, \n" +
+        "books.Publish_Year, \n" +
+        "books.Pages_Count, \n" +
+        "books.Price, \n" +
+        "books.id \n" +
+        "FROM genres \n" +
+        "JOIN books \n" +
+        "ON genres.Name = books.Genre WHERE genres.id = ?;", [id])
+    return row;
+}

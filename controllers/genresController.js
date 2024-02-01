@@ -9,6 +9,19 @@ router.get('/', async (req, res) => {
     res.send(genres)
 })
 
+router.get('/books', async (req, res) => {
+    const genresBooks = await service.getGenresBooks()
+    res.send(genresBooks)
+})
+
+router.get('/:id/books', async (req, res) => {
+    const genreBooks = await service.getGenresBooksById(req.params.id)
+    if (genreBooks === undefined)
+        res.status(404).json("no record with given id: "+req.params.id)
+    else
+        res.send(genreBooks)
+})
+
 router.get('/:id', async (req, res) => {
     const genre = await service.getGenreById(req.params.id)
     if (genre === undefined)
