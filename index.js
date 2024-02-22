@@ -6,6 +6,10 @@ const express = require("express"),
 const swaggerJsdoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
 const ip = require("ip"); // Add ip module for getting user's IP address
+const { Client } = require("cassandra-driver");
+const expressWinston = require("express-winston");
+const { transports, format } = require("winston");
+
 require("express-async-errors");
 
 const db = require("./db"),
@@ -34,6 +38,28 @@ const swaggerOptions = {
 // Initialize swagger-jsdoc
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
+app.use(
+  expressWinston.logger({
+    transports: [
+      new transports.Console(),
+      new transports.File({
+        level: "warn",
+        filename: "./logs/logsWarnings.log",
+      }),
+      new transports.File({
+        level: "error",
+        filename: "./logs/logsErrors.log",
+      }),
+    ],
+    format: format.combine(
+      format.json(),
+      format.timestamp(),
+      format.prettyPrint(),
+    ),
+    statusLevels: true,
+  }),
+);
+
 // Serve Swagger UI
 app.use("/api-docs", swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
@@ -43,37 +69,6 @@ app.use(morgan("combined"));
 // Middleware for parsing JSON in request body
 app.use(bodyparser.json());
 
-const logLevels = {
-  110: "warn",
-  111: "warn",
-  112: "warn",
-  113: "warn",
-  199: "warn",
-  214: "warn",
-  299: "warn",
-  200: "info",
-  201: "info",
-  204: "info",
-  400: "error",
-  401: "error",
-  404: "error",
-  500: "error",
-};
-
-// Middleware for logging each request
-app.use((req, res, next) => {
-  const logLevel = logLevels[res.statusCode] || "info";
-  const logMessage = `[${new Date().toISOString()}] ${logLevel.toUpperCase()}: ${req.method} ${req.url} from ${ip.address()}`;
-
-  if (logLevel === "error") {
-    console.error(logMessage);
-    console.error(`Error Message: ${res.locals.error.message}`);
-  } else {
-    console[logLevel](logMessage);
-  }
-  next();
-});
-
 // Routes
 app.use("/api/books", bookRoutes);
 app.use("/api/authors", authorRoutes);
@@ -81,9 +76,6 @@ app.use("/api/genres", genreRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
-  const logMessage = `[${new Date().toISOString()}] ${"ERROR"}: ${req.method} ${req.url} from ${ip.address()}`;
-
-  console.log(logMessage);
   console.error(err);
   res.status(err.status || 500).send("Something went wrong!");
 });
@@ -95,3 +87,13 @@ db.query("SELECT 1")
     app.listen(3000, () => console.log("server started at 3000"));
   })
   .catch((err) => console.log("db connection failed. \n" + err));
+
+const client = new Client({
+  contactPoints: ["172.17.0.2"], // Replace with your ScyllaDB contact points
+  localDataCenter: "datacenter1", // Replace with your data center name
+});
+
+client
+  .connect()
+  .then(() => console.log("Connected to ScyllaDB"))
+  .catch((err) => console.error("Error connecting to ScyllaDB:", err));
