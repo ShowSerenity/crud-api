@@ -11,7 +11,6 @@ module.exports.getBookById = async (id) => {
   const [[row]] = await db.query("SELECT * FROM books WHERE id = ?", [id]);
   return row;
 };
-
 module.exports.deleteBook = async (id) => {
   const [{ affectedRows }] = await db.query("DELETE FROM books WHERE id = ?", [
     id,
@@ -92,15 +91,15 @@ function sendEmailNotification(bookName, author) {
   const transporter = nodemailer.createTransport({
     service: "gmail",
     auth: {
-      user: "email@gmail.com",
-      pass: "",
+      user: "asanali.rymgali@gmail.com",
+      pass: "wstl vxgi kfoi oubj",
     },
   });
 
   // Setup email data
   const mailOptions = {
-    from: "email@gmail.com",
-    to: "email@gmail.com",
+    from: "asanali.rymgali@gmail.com",
+    to: "showtranquility@gmail.com",
     subject: "New Book Added to Library",
     text: `A new book "${bookName}" by ${author} has been added to the library.`,
   };
