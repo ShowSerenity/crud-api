@@ -1,187 +1,72 @@
-/**
- * @swagger
- * tags:
- *   name: Books
- *   description: API operations related to books
- */
+//bookService.js
+const db = require("../db");
+const nodemailer = require("nodemailer");
+const { emailFrom, emailTo, pass } = require("../config");
 
-const express = require("express");
-const router = express.Router();
+module.exports.getAllBooks = async () => {
+  const [rows] = await db.query("SELECT * FROM books");
+  return rows;
+};
 
-const service = require("../services/booksService");
-const exportFile = require("../controllers/fileController");
-const ip = require("ip");
+module.exports.getBookById = async (id) => {
+  const [[row]] = await db.query("SELECT * FROM books WHERE id = ?", [id]);
+  return row;
+};
 
-/**
- * @swagger
- * /api/books:
- *   get:
- *     summary: Retrieve all books.
- *     tags: [Books]
- *     responses:
- *       200:
- *         description: A list of books.
- *         content:
- *           application/json:
- *             example: [{"title": "The Great Gatsby", "author": "F. Scott Fitzgerald", "genre": "Fiction"}]
- */
-router.get("/", async (req, res) => {
-  const books = await service.getAllBooks();
-  res.send(books);
-});
+module.exports.deleteBook = async (req, res, id) => {
+  if (req.cookies.roles === "admin") {
+    const [{ affectedRows }] = await db.query(
+      "DELETE FROM books WHERE id = ?",
+      [id],
+    );
+    return affectedRows;
+  } else {
+    return res.json({ message: "access denied" });
+  }
+};
 
-/**
- * @swagger
- * /api/books/error:
- *   get:
- *     summary: Simulate an error.
- *     tags: [Books]
- *     responses:
- *       500:
- *         description: Simulated error response.
- */
-router.get("/error", (req, res, next) => {
-  // Simulate an error (e.g., database query failure)
-  const error = new Error("Simulated error occurred");
-  error.status = 500;
-  next(error);
-});
+module.exports.addOrEditBook = async (req, res, obj, id = 0) => {
+  if (req.cookies.roles === "admin" || req.cookies.roles === "manager") {
+    const [[[{ affectedRows }]]] = await db.query(
+      "CALL usp_book_add_or_edit(?,?,?,?,?,?)",
+      [id, obj.Name, obj.Author, obj.Publish_Year, obj.Pages_Count, obj.Price],
+    );
 
-/**
- * @swagger
- * /api/books/warning:
- *   get:
- *     summary: Simulate a warning.
- *     tags: [Books]
- *     responses:
- *       299:
- *         description: Simulated warning response.
- */
-router.get("/warning", (req, res, next) => {
-  const warningMessage = "This is a simulated warning.";
-  const logMessage = `[${new Date().toISOString()}] ${"WARN"}: ${req.method} ${req.url} from ${ip.address()}`;
-  console.log(logMessage);
-  console.warn(warningMessage);
+    if (affectedRows > 0) {
+      // Book added successfully, send email notification
+      sendEmailNotification(obj.Name, obj.Author);
+    }
 
-  // Simulate a warning response (use a status code in the 300-399 range)
-  res
-    .status(299)
-    .json({ message: "Simulated warning response.", warning: warningMessage });
-});
+    return affectedRows;
+  } else {
+    return res.json({ message: "access denied" });
+  }
+};
 
-/**
- * @swagger
- * /api/books/{id}:
- *   get:
- *     summary: Retrieve a specific book by ID.
- *     tags: [Books]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         description: ID of the book to retrieve.
- *         example: 123
- *     responses:
- *       200:
- *         description: The requested book.
- *         content:
- *           application/json:
- *             example: {"title": "The Great Gatsby", "author": "F. Scott Fitzgerald", "genre": "Fiction"}
- *       404:
- *         description: Book not found.
- */
-router.get("/:id", async (req, res) => {
-  const book = await service.getBookById(req.params.id);
-  if (book === undefined)
-    res.status(404).json("no record with given id: " + req.params.id);
-  else res.send(book);
-});
+function sendEmailNotification(bookName, author) {
+  // Create a Nodemailer transporter
+  const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      user: emailFrom,
+      pass: pass,
+    },
+  });
 
-/**
- * @swagger
- * /api/books/{id}:
- *   delete:
- *     summary: Delete a book by ID.
- *     tags: [Books]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         description: ID of the book to delete.
- *         example: 123
- *     responses:
- *       200:
- *         description: Book deleted successfully.
- *       404:
- *         description: Book not found.
- */
-router.delete("/:id", async (req, res) => {
-  const affectedRows = await service.deleteBook(req.params.id);
-  if (affectedRows === 0)
-    res.status(404).json("no record with given id: " + req.params.id);
-  else res.send("deleted successfully");
-});
+  // Setup email data
+  const mailOptions = {
+    from: emailFrom,
+    to: emailTo,
+    subject: "New Book Added to Library",
+    text: `A new book "${bookName}" by ${author} has been added to the library.`,
+  };
 
-/**
- * @swagger
- * /api/books:
- *   post:
- *     summary: Add a new book.
- *     tags: [Books]
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           example: {"title": "The Great Gatsby", "author": "F. Scott Fitzgerald", "genre": "Fiction"}
- *     responses:
- *       201:
- *         description: Book created successfully.
- */
-router.post("/", async (req, res) => {
-  await service.addOrEditBook(req.body);
-  res.status(201).send("created successfully");
-});
-
-/**
- * @swagger
- * /api/books/{id}:
- *   put:
- *     summary: Update a book by ID.
- *     tags: [Books]
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         description: ID of the book to update.
- *         example: 123
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           example: {"title": "Updated Title", "author": "Updated Author", "genre": "Updated Genre"}
- *     responses:
- *       200:
- *         description: Book updated successfully.
- *       404:
- *         description: Book not found.
- */
-router.put("/:id", async (req, res) => {
-  const affectedRows = await service.addOrEditBook(req.body, req.params.id);
-  if (affectedRows === 0)
-    res.status(404).json("no record with given id: " + req.params.id);
-  else res.send("updated successfully");
-});
-
-/**
- * @swagger
- * /api/books/download/excel:
- *   get:
- *     summary: Download books data in Excel format.
- *     tags: [Books]
- *     responses:
- *       200:
- *         description: Excel file containing books data.
- */
-router.get("/download/excel", exportFile);
-
-module.exports = router;
+  // Send the email
+  transporter.sendMail(mailOptions, (error, info) => {
+    if (error) {
+      console.error("Error sending email:", error);
+    } else {
+      console.log("Email sent:", info.response);
+    }
+  });
+}

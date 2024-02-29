@@ -5,17 +5,20 @@ const express = require("express"),
   morgan = require("morgan");
 const swaggerJsdoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
-const ip = require("ip"); // Add ip module for getting user's IP address
-const { Client } = require("cassandra-driver");
 const expressWinston = require("express-winston");
 const { transports, format } = require("winston");
+const cookieParser = require("cookie-parser");
+const authMiddleware = require("./middleware/authMiddleware");
+
+require("dotenv").config();
 
 require("express-async-errors");
 
 const db = require("./db"),
-  bookRoutes = require("./controllers/booksController");
-authorRoutes = require("./controllers/authorsController");
-genreRoutes = require("./controllers/genresController");
+  bookRoutes = require("./routes/booksRouter"),
+  authorRoutes = require("./routes/authoursRouter"),
+  genreRoutes = require("./routes/genresRouter"),
+  userRoutes = require("./routes/usersRouter");
 
 // Swagger Options
 const swaggerOptions = {
@@ -32,7 +35,7 @@ const swaggerOptions = {
       },
     ],
   },
-  apis: ["./controllers/*.js"],
+  apis: ["./routes/*.js"],
 };
 
 // Initialize swagger-jsdoc
@@ -40,17 +43,7 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
 app.use(
   expressWinston.logger({
-    transports: [
-      new transports.Console(),
-      new transports.File({
-        level: "warn",
-        filename: "./logs/logsWarnings.log",
-      }),
-      new transports.File({
-        level: "error",
-        filename: "./logs/logsErrors.log",
-      }),
-    ],
+    transports: [new transports.Console()],
     format: format.combine(
       format.json(),
       format.timestamp(),
@@ -69,13 +62,16 @@ app.use(morgan("combined"));
 // Middleware for parsing JSON in request body
 app.use(bodyparser.json());
 
+app.use(cookieParser());
+
 // Routes
-app.use("/api/books", bookRoutes);
-app.use("/api/authors", authorRoutes);
-app.use("/api/genres", genreRoutes);
+app.use("/books", authMiddleware, bookRoutes);
+app.use("/authors", authorRoutes);
+app.use("/genres", genreRoutes);
+app.use("/users", userRoutes);
 
 // Error handling middleware
-app.use((err, req, res, next) => {
+app.use((err, req, res) => {
   console.error(err);
   res.status(err.status || 500).send("Something went wrong!");
 });
@@ -87,13 +83,3 @@ db.query("SELECT 1")
     app.listen(3000, () => console.log("server started at 3000"));
   })
   .catch((err) => console.log("db connection failed. \n" + err));
-
-const client = new Client({
-  contactPoints: ["172.17.0.2"], // Replace with your ScyllaDB contact points
-  localDataCenter: "datacenter1", // Replace with your data center name
-});
-
-client
-  .connect()
-  .then(() => console.log("Connected to ScyllaDB"))
-  .catch((err) => console.error("Error connecting to ScyllaDB:", err));
